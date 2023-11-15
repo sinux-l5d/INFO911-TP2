@@ -18,10 +18,10 @@ Mat convolution(Mat input, Mat F)
       {
         for (int l = -1; l <= 1; l++)
         {
-          sum += input.at<uchar>(i + k, j + l) * F.at<float>(k + 1, l + 1);
+          sum += input.at<float>(i + k, j + l) * F.at<float>(k + 1, l + 1);
         }
       }
-      output.at<uchar>(i, j) = sum;
+      output.at<float>(i, j) = sum;
     }
   }
 
@@ -38,37 +38,66 @@ Mat filtreM(Mat input)
   Mat filter = (Mat_<float>(3, 3) << 1, 2, 1,
                 2, 4, 2,
                 1, 2, 1);
+
   return convolution(input, filter / 16.0);
+}
+
+Mat filtreRehausseur(Mat input, float coef)
+{
+  /*
+  Laplacien
+  0 1 0
+  1 -4 1
+  0 1 0
+  */
+  Mat filter = coef *
+               (Mat_<float>(3, 3) << 0, 1, 0,
+                1, -4, 1,
+                0, 1, 0);
+  return input - convolution(input, filter);
 }
 
 int main(int argc, char *argv[])
 {
-  namedWindow("Youpi");        // crée une fenêtre
+  namedWindow("Filter");       // crée une fenêtre
   Mat input = imread(argv[1]); // lit l'image donnée en paramètre
   if (input.channels() == 3)
     cv::cvtColor(input, input, COLOR_BGR2GRAY);
   Mat inputOrigine = input.clone();
+  Mat inputR;
+  input.convertTo(inputR, CV_32F);
+
+  float alpha = 60.0;
+  createTrackbar("alpha (en %)", "Filter", nullptr, 100, NULL);
+  setTrackbarPos("alpha (en %)", "Filter", alpha);
+
   while (true)
   {
     int keycode = waitKey(50);
     int asciicode = keycode & 0xff;
     if (asciicode == 'q')
       break;
+    input.convertTo(inputR, CV_32F);
     switch (asciicode)
     {
     case 'a':
-      input = filtreM(input);
+      inputR = filtreM(inputR);
       break;
     case 'm':
       // filtre median
-      medianBlur(input, input, 3);
+      medianBlur(inputR, inputR, 3);
       break;
-    case 'r':
-      input = inputOrigine.clone();
+    case 'r': // reset
+      inputR = inputOrigine.clone();
+      break;
+    case 's':
+      alpha = getTrackbarPos("alpha (en %)", "Filter");
+      inputR = filtreRehausseur(inputR, alpha / 100.0);
       break;
     default:
       break;
     }
-    imshow("Youpi", input); // l'affiche dans la fenêtre
+    inputR.convertTo(input, CV_8U);
+    imshow("Filter", input); // l'affiche dans la fenêtre
   }
 }
