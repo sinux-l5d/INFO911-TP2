@@ -34,6 +34,7 @@ int main(int argc, char *argv[])
   Mat input = imread(argv[1]); // lit l'image donnée en paramètre
   if (input.channels() == 3)
     cv::cvtColor(input, input, COLOR_BGR2GRAY);
+  Mat inputOrigine = input.clone();
   Mat filter;
   while (true)
   {
@@ -55,11 +56,16 @@ int main(int argc, char *argv[])
       for (int i = 0; i < 10; i++)
         input = filtreM(input, filter / 16.0);
       break;
-
+    case 'm':
+      // filtre median
+      medianBlur(input, input, 3);
+      break;
+    case 'r':
+      input = inputOrigine.clone();
+      break;
     default:
       break;
     }
     imshow("Youpi", input); // l'affiche dans la fenêtre
   }
-  imwrite("result.png", input); // sauvegarde le résultat
 }
