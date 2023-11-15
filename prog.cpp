@@ -2,7 +2,7 @@
 #include <opencv2/highgui.hpp>
 using namespace cv;
 
-Mat convolution(Mat input, Mat F)
+Mat convolution(Mat input, Mat F, float delta = 0.0)
 {
   Mat output = Mat::zeros(input.size(), input.type());
 
@@ -21,7 +21,7 @@ Mat convolution(Mat input, Mat F)
           sum += input.at<float>(i + k, j + l) * F.at<float>(k + 1, l + 1);
         }
       }
-      output.at<float>(i, j) = sum;
+      output.at<float>(i, j) = sum + delta;
     }
   }
 
@@ -57,6 +57,23 @@ Mat filtreRehausseur(Mat input, float coef)
   return input - convolution(input, filter);
 }
 
+Mat sobel(Mat input, bool isX)
+{
+  // filtre matrice Sobel dérivée en x
+  Mat filter = (Mat_<float>(3, 3) << -1, 0, 1,
+                -2, 0, 2,
+                -1, 0, 1) /
+               4.0;
+  if (!isX)
+  {
+    // rotate filter around the center
+    transpose(filter, filter);
+    flip(filter, filter, 0);
+  }
+
+  return convolution(input, filter, 128.0);
+}
+
 int main(int argc, char *argv[])
 {
   namedWindow("Filter");       // crée une fenêtre
@@ -80,19 +97,24 @@ int main(int argc, char *argv[])
     input.convertTo(inputR, CV_32F);
     switch (asciicode)
     {
-    case 'a':
+    case 'a': // filtre moyenneur (average)
       inputR = filtreM(inputR);
       break;
-    case 'm':
-      // filtre median
+    case 'm': // filtre median
       medianBlur(inputR, inputR, 3);
       break;
     case 'r': // reset
       inputR = inputOrigine.clone();
       break;
-    case 's':
+    case 's': // filtre rehausseur
       alpha = getTrackbarPos("alpha (en %)", "Filter");
       inputR = filtreRehausseur(inputR, alpha / 100.0);
+      break;
+    case 'x':
+      inputR = sobel(inputR, true);
+      break;
+    case 'y':
+      inputR = sobel(inputR, false);
       break;
     default:
       break;
