@@ -4,7 +4,7 @@ using namespace cv;
 
 Mat convolution(Mat input, Mat F, float delta = 0.0)
 {
-  Mat output = Mat::zeros(input.size(), input.type());
+  Mat output = Mat::zeros(input.size(), CV_32F);
 
   // Convolution input * F
   for (int i = 1; i < input.rows - 1; i++)
@@ -42,19 +42,12 @@ Mat filtreM(Mat input)
   return convolution(input, filter / 16.0);
 }
 
+Mat const Laplacien = (Mat_<float>(3, 3) << 0, 1, 0,
+                       1, -4, 1,
+                       0, 1, 0);
 Mat filtreRehausseur(Mat input, float coef)
 {
-  /*
-  Laplacien
-  0 1 0
-  1 -4 1
-  0 1 0
-  */
-  Mat filter = coef *
-               (Mat_<float>(3, 3) << 0, 1, 0,
-                1, -4, 1,
-                0, 1, 0);
-  return input - convolution(input, filter);
+  return input - convolution(input, coef * Laplacien);
 }
 
 Mat const SobelX = (Mat_<float>(3, 3) << -1, 0, 1,
@@ -81,7 +74,7 @@ Mat gradiant(Mat input)
   Mat sobelX = convolution(input, SobelX);
   Mat sobelY = convolution(input, SobelY);
 
-  Mat output = Mat::zeros(input.size(), input.type());
+  Mat output = Mat::zeros(input.size(), CV_32F);
   for (int i = 0; i < input.rows; i++)
   {
     for (int j = 0; j < input.cols; j++)
@@ -90,6 +83,46 @@ Mat gradiant(Mat input)
     }
   }
 
+  return output;
+}
+
+Mat contours(Mat input, double seuil)
+{
+  //  contours à la Marr-Hildreth
+  Mat output = Mat(input.size(), CV_32F, Scalar(255.0));
+
+  Mat grad = gradiant(input);
+  Mat laplacien = convolution(input, Laplacien);
+
+  for (int i = 0; i < input.rows; i++)
+  {
+    for (int j = 0; j < input.cols; j++)
+    {
+      if (grad.at<float>(i, j) < seuil)
+        continue;
+
+      // si parmis les 8 voisin de [i,j] on a des positifs et des négatifs, on met le pixel en noir
+      bool asNeg = false;
+      bool asPos = false;
+      for (int k = -1; k <= 1; k++)
+      {
+        for (int l = -1; l <= 1; l++)
+        {
+          if (k == 0 && l == 0)
+            continue;
+          if (laplacien.at<float>(i + k, j + l) < 0)
+            asNeg = true;
+          if (laplacien.at<float>(i + k, j + l) > 0)
+            asPos = true;
+          if (asNeg && asPos)
+            goto outer;
+        }
+      }
+    outer:
+      if (asNeg && asPos)
+        output.at<float>(i, j) = 0.0;
+    }
+  }
   return output;
 }
 
@@ -106,6 +139,10 @@ int main(int argc, char *argv[])
   float alpha = 60.0;
   createTrackbar("alpha (en %)", "Filter", nullptr, 100, NULL);
   setTrackbarPos("alpha (en %)", "Filter", alpha);
+
+  float seuil = 20.0;
+  createTrackbar("seuil (en %)", "Filter", nullptr, 100, NULL);
+  setTrackbarPos("seuil (en %)", "Filter", seuil);
 
   while (true)
   {
@@ -137,6 +174,10 @@ int main(int argc, char *argv[])
       break;
     case 'g':
       inputR = gradiant(inputR);
+      break;
+    case 'c':
+      seuil = getTrackbarPos("seuil (en %)", "Filter");
+      inputR = contours(inputR, seuil);
       break;
     default:
       break;
