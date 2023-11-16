@@ -127,6 +127,35 @@ Mat contours(Mat input, double seuil)
   return output;
 }
 
+float rand01()
+{
+  return rand() / (double)RAND_MAX;
+}
+
+Mat esquisse(Mat input, float seuil, float traitProp, float traitLong)
+{
+  Mat c = contours(input, seuil);
+  Mat sobelX = sobel(input, true);
+  Mat sobelY = sobel(input, false);
+  Mat output = Mat(input.size(), CV_32F, Scalar(255.0));
+
+  for (int i = 0; i < input.rows; i++)
+  {
+    for (int j = 0; j < input.cols; j++)
+    {
+      if (c.at<float>(i, j) != 0.0)
+        continue;
+      if (rand01() >= traitProp / 100.0)
+        continue;
+      float teta = atan2(-sobelY.at<float>(i, j), sobelX.at<float>(i, j)) + M_PI / 2.0f + 0.02f * (rand01() - 0.5f);
+      float gris = input.at<float>(i, j);
+      float lprim = (gris / 255.0f) * (traitLong / 100.0f);
+      line(output, Point(j - lprim * cos(teta), i - lprim * sin(teta)), Point(j + lprim * cos(teta), i + lprim * sin(teta)), Scalar(0.0), 1);
+    }
+  }
+  return output;
+}
+
 int img(int argc, char *argv[])
 {
   namedWindow("Filter");       // crée une fenêtre
@@ -144,6 +173,14 @@ int img(int argc, char *argv[])
   float seuil = 20.0;
   createTrackbar("seuil (en %)", "Filter", nullptr, 100, NULL);
   setTrackbarPos("seuil (en %)", "Filter", seuil);
+
+  float propo = 50.0;
+  createTrackbar("proportion de traits (en %)", "Filter", nullptr, 100, NULL);
+  setTrackbarPos("proportion de traits (en %)", "Filter", propo);
+
+  float longueur = 100.0;
+  createTrackbar("longueur des traits (en %)", "Filter", nullptr, 1000, NULL);
+  setTrackbarPos("longueur des traits (en %)", "Filter", longueur);
 
   while (true)
   {
@@ -179,6 +216,12 @@ int img(int argc, char *argv[])
     case 'c':
       seuil = getTrackbarPos("seuil (en %)", "Filter");
       inputR = contours(inputR, seuil);
+      break;
+    case 'e':
+      seuil = getTrackbarPos("seuil (en %)", "Filter");
+      propo = getTrackbarPos("proportion de traits (en %)", "Filter");
+      longueur = getTrackbarPos("longueur des traits (en %)", "Filter");
+      inputR = esquisse(inputR, seuil, propo, longueur);
       break;
     default:
       break;
