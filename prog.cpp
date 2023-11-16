@@ -1,5 +1,6 @@
 #include "opencv2/imgproc.hpp"
 #include <opencv2/highgui.hpp>
+#include <iostream>
 using namespace cv;
 
 Mat convolution(Mat input, Mat F, float delta = 0.0)
@@ -126,7 +127,7 @@ Mat contours(Mat input, double seuil)
   return output;
 }
 
-int main(int argc, char *argv[])
+int img(int argc, char *argv[])
 {
   namedWindow("Filter");       // crée une fenêtre
   Mat input = imread(argv[1]); // lit l'image donnée en paramètre
@@ -185,4 +186,88 @@ int main(int argc, char *argv[])
     inputR.convertTo(input, CV_8U);
     imshow("Filter", input); // l'affiche dans la fenêtre
   }
+  return 0;
+}
+
+int cam(int argc, char **argv)
+{
+  VideoCapture cap(0);
+  if (!cap.isOpened())
+    return 1;
+  Mat frame, edges;
+  namedWindow("Cam", WINDOW_AUTOSIZE);
+  bool stop = false;
+  int key_code = -1;
+  int ascii_code = -1;
+
+  float alpha = 60.0;
+  createTrackbar("alpha (en %)", "Cam", nullptr, 100, NULL);
+  setTrackbarPos("alpha (en %)", "Cam", alpha);
+
+  float seuil = 20.0;
+  createTrackbar("seuil (en %)", "Cam", nullptr, 100, NULL);
+  setTrackbarPos("seuil (en %)", "Cam", seuil);
+  uint combo = 1;
+  while (!stop)
+  {
+    cap >> frame;
+    cvtColor(frame, edges, COLOR_BGR2GRAY);
+    edges.convertTo(edges, CV_32F);
+    key_code = waitKey(10);
+    if (key_code != -1)
+      combo = (key_code & 0xff) == ascii_code ? combo + 1 : 1;
+    ascii_code = key_code > 0 ? key_code & 0xff : ascii_code; // change only if key_code > 0
+    for (int i = 0; i < combo; i++)
+    {
+      switch (ascii_code)
+      {
+      case 'a':
+        edges = filtreM(edges);
+        break;
+      case 'm':
+        medianBlur(edges, edges, 3);
+        break;
+      case 'r':
+        ascii_code = -1;
+        break;
+      case 's':
+        alpha = getTrackbarPos("alpha (en %)", "Cam");
+        edges = filtreRehausseur(edges, alpha / 100.0);
+        break;
+      case 'x':
+        edges = sobel(edges, true);
+        break;
+      case 'y':
+        edges = sobel(edges, false);
+        break;
+      case 'g':
+        edges = gradiant(edges);
+        break;
+      case 'c':
+        seuil = getTrackbarPos("seuil (en %)", "Cam");
+        edges = contours(edges, seuil);
+        break;
+      case 'q':
+        stop = true;
+      default:
+        goto outer;
+      }
+    }
+  outer:
+    edges.convertTo(edges, CV_8U);
+    imshow("Cam", edges);
+  }
+  return 0;
+}
+
+int main(int argc, char **argv)
+{
+  // two subcommands: img and cam
+  if (argc > 1 && strcmp(argv[1], "img") == 0)
+    return img(argc - 1, argv + 1);
+  else if (argc > 1 && strcmp(argv[1], "cam") == 0)
+    return cam(argc - 1, argv + 1);
+  else
+    std::cout << "usage: " << argv[0] << " img|cam [args]" << std::endl;
+  return 1;
 }
