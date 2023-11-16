@@ -57,21 +57,40 @@ Mat filtreRehausseur(Mat input, float coef)
   return input - convolution(input, filter);
 }
 
+Mat const SobelX = (Mat_<float>(3, 3) << -1, 0, 1,
+                    -2, 0, 2,
+                    -1, 0, 1) /
+                   4.0;
+Mat const SobelY = (Mat_<float>(3, 3) << -1, -2, -1,
+                    0, 0, 0,
+                    1, 2, 1) /
+                   4.0;
 Mat sobel(Mat input, bool isX)
 {
   // filtre matrice Sobel dérivée en x
-  Mat filter = (Mat_<float>(3, 3) << -1, 0, 1,
-                -2, 0, 2,
-                -1, 0, 1) /
-               4.0;
+  Mat filter = SobelX;
   if (!isX)
-  {
-    // rotate filter around the center
-    transpose(filter, filter);
-    flip(filter, filter, 0);
-  }
+    filter = SobelY;
 
   return convolution(input, filter, 128.0);
+}
+
+Mat gradiant(Mat input)
+{
+  // using SobelX and SobelY
+  Mat sobelX = convolution(input, SobelX);
+  Mat sobelY = convolution(input, SobelY);
+
+  Mat output = Mat::zeros(input.size(), input.type());
+  for (int i = 0; i < input.rows; i++)
+  {
+    for (int j = 0; j < input.cols; j++)
+    {
+      output.at<float>(i, j) = sqrt(pow(sobelX.at<float>(i, j), 2) + pow(sobelY.at<float>(i, j), 2));
+    }
+  }
+
+  return output;
 }
 
 int main(int argc, char *argv[])
@@ -115,6 +134,9 @@ int main(int argc, char *argv[])
       break;
     case 'y':
       inputR = sobel(inputR, false);
+      break;
+    case 'g':
+      inputR = gradiant(inputR);
       break;
     default:
       break;
